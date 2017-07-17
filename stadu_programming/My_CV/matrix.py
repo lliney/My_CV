@@ -13,6 +13,6 @@ c=np.array([[3,0,0],
             [0,0,3]])
 a=2*a
 k=np.dot(a,b)
-
+print(k)
 p=np.dot(k,c)
 print(p)
