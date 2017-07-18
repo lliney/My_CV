@@ -116,7 +116,56 @@ def sigmoid_prime(x):
     """производная сигмоидальной функции, работает и с числами, и с векторами (поэлементно)"""
     return sigmoid(x) * (1 - sigmoid(x))
 
+def print_grad_diff(eps):
+    num_grad = compute_grad_numerically(neuron, X, y, J=J_quadratic, eps=float(eps))
+    an_grad = compute_grad_analytically(neuron, X, y, J_prime=J_quadratic_derivative)
+    print(np.linalg.norm(num_grad - an_grad))
 
+def compute_grad_numerically_2(neuron, X, y, J=J_quadratic, eps=10e-2):
+    """
+    Численная производная целевой функции.
+    neuron - объект класса Neuron с вертикальным вектором весов w,
+    X - вертикальная матрица входов формы (n, m), на которой считается сумма квадратов отклонений,
+    y - правильные ответы для тестовой выборки X,
+    J - целевая функция, градиент которой мы хотим получить,
+    eps - размер $\delta w$ (малого изменения весов).
+    """
+    initial_cost = J(neuron, X, y)
+    w_0 = neuron.w
+    num_grad = np.zeros(w_0.shape)
+
+    for i in range(len(w_0)):
+        old_wi = neuron.w[i].copy()
+        # Меняем вес
+        neuron.w[i] += eps
+        num_grad[i] = (J(neuron, X, y) - initial_cost)
+        # Возвращаем вес обратно. Лучше так, чем -= eps, чтобы не накапливать ошибки округления
+        neuron.w[i] = old_wi
+        neuron.w[i] -= eps
+        num_grad[i] -= (J(neuron, X, y) - initial_cost)
+        num_grad[i] = num_grad[i]/(2*eps)
+        # Возвращаем вес обратно. Лучше так, чем -= eps, чтобы не накапливать ошибки округления
+        neuron.w[i] = old_wi
+
+
+    # проверим, что не испортили нейрону веса своими манипуляциями
+    assert np.allclose(neuron.w, w_0), "МЫ ИСПОРТИЛИ НЕЙРОНУ ВЕСА"
+    return num_grad
+
+    pass
+
+def print_grad_diff_2(eps):
+    num_grad = compute_grad_numerically_2(neuron, X, y, J=J_quadratic, eps=float(eps))
+    an_grad = compute_grad_analytically(neuron, X, y, J_prime=J_quadratic_derivative)
+    print(np.linalg.norm(num_grad-an_grad))
+
+def J_by_weights(weights, X, y, bias):
+    """
+    Посчитать значение целевой функции для нейрона с заданными весами.
+    Только для визуализации
+    """
+    new_w = np.hstack((bias, weights)).reshape((3,1))
+    return J_quadratic(Neuron(new_w), X, y)
 
 class Neuron:
     def __init__(self, weights, activation_function=sigmoid, activation_function_derivative=sigmoid_prime):
@@ -240,3 +289,122 @@ class Neuron:
 
 
 data = np.loadtxt("data.csv", delimiter=",")
+# Подготовим данные
+
+X = data[:, :-1]
+y = data[:, -1]
+
+X = np.hstack((np.ones((len(y), 1)), X))
+y = y.reshape((len(y), 1)) # Обратите внимание на эту очень противную и важную строчку
+
+# Создадим нейрон
+
+w = np.random.random((X.shape[1], 1))
+neuron = Neuron(w, activation_function=sigmoid, activation_function_derivative=sigmoid_prime)
+
+# Посчитаем пример
+num_grad = compute_grad_numerically(neuron, X, y, J=J_quadratic)
+an_grad = compute_grad_analytically(neuron, X, y, J_prime=J_quadratic_derivative)
+
+print("Численный градиент: \n", num_grad)
+print("Аналитический градиент: \n", an_grad)
+
+#interact(print_grad_diff,
+    #     eps=RadioButtons(options=["3", "1", "0.1", "0.001", "0.0001"]), separator=" ");
+
+#% matplotlib inline
+
+max_b = 40
+min_b = -40
+max_w1 = 40
+min_w1 = -40
+max_w2 = 40
+min_w2 = -40
+
+g_bias = 0  # график номер 2 будет при первой генерации по умолчанию иметь то значение b, которое выставлено в первом
+X_corrupted = X.copy()
+y_corrupted = y.copy()
+
+
+@interact(fixed_bias=FloatSlider(min=min_b, max=max_b, continuous_update=False),
+          mixing=FloatSlider(min=0, max=1, continuous_update=False, value=0),
+          shifting=FloatSlider(min=0, max=1, continuous_update=False, value=0)
+          )
+def visualize_cost_function(fixed_bias, mixing, shifting):
+    """
+    Визуализируем поверхность целевой функции на (опционально) подпорченных данных и сами данные.
+    Портим данные мы следующим образом: сдвигаем категории навстречу друг другу, на величину, равную shifting
+    Кроме того, меняем классы некоторых случайно выбранных примеров на противоположнее.
+    Доля таких примеров задаётся переменной mixing
+
+    Нам нужно зафиксировать bias на определённом значении, чтобы мы могли что-нибудь визуализировать.
+    Можно посмотреть, как bias влияет на форму целевой функции
+    """
+    xlim = (min_w1, max_w1)
+    ylim = (min_w2, max_w2)
+    xx = np.linspace(*xlim, num=101)
+    yy = np.linspace(*ylim, num=101)
+    xx, yy = np.meshgrid(xx, yy)
+    points = np.stack([xx, yy], axis=2)
+
+    # не будем портить исходные данные, будем портить их копию
+    corrupted = data.copy()
+
+    # инвертируем ответы для случайно выбранного поднабора данных
+    mixed_subset = np.random.choice(range(len(corrupted)), int(mixing * len(corrupted)), replace=False)
+    corrupted[mixed_subset, -1] = np.logical_not(corrupted[mixed_subset, -1])
+
+    # сдвинем все груши (внизу справа) на shifting наверх и влево
+    pears = corrupted[:, 2] == 1
+    apples = np.logical_not(pears)
+    corrupted[pears, 0] -= shifting
+    corrupted[pears, 1] += shifting
+
+    # вытащим наружу испорченные данные
+    global X_corrupted, y_corrupted
+    X_corrupted = np.hstack((np.ones((len(corrupted), 1)), corrupted[:, :-1]))
+    y_corrupted = corrupted[:, -1].reshape((len(corrupted), 1))
+
+    # посчитаем значения целевой функции на наших новых данных
+    calculate_weights = partial(J_by_weights, X=X_corrupted, y=y_corrupted, bias=fixed_bias)
+    J_values = np.apply_along_axis(calculate_weights, -1, points)
+
+    fig = plt.figure(figsize=(16, 5))
+    # сначала 3D-график целевой функции
+    ax_1 = fig.add_subplot(1, 2, 1, projection='3d')
+    surf = ax_1.plot_surface(xx, yy, J_values, alpha=0.3)
+    ax_1.set_xlabel("$w_1$")
+    ax_1.set_ylabel("$w_2$")
+    ax_1.set_zlabel("$J(w_1, w_2)$")
+    ax_1.set_title("$J(w_1, w_2)$ for fixed bias = ${}$".format(fixed_bias))
+    # потом плоский поточечный график повреждённых данных
+    ax_2 = fig.add_subplot(1, 2, 2)
+    plt.scatter(corrupted[apples][:, 0], corrupted[apples][:, 1], color="red", alpha=0.7)
+    plt.scatter(corrupted[pears][:, 0], corrupted[pears][:, 1], color="green", alpha=0.7)
+    ax_2.set_xlabel("yellowness")
+    ax_2.set_ylabel("symmetry")
+
+    plt.show()
+
+
+@interact(b=BoundedFloatText(value=str(g_bias), min=min_b, max=max_b, description="Enter $b$:"),
+          w1=BoundedFloatText(value="0", min=min_w1, max=max_w1, description="Enter $w_1$:"),
+          w2=BoundedFloatText(value="0", min=min_w2, max=max_w2, description="Enter $w_2$:"),
+          learning_rate=Dropdown(options=["0.01", "0.05", "0.1", "0.5", "1", "5", "10"],
+                                 value="0.01", description="Learning rate: ")
+          )
+def learning_curve_for_starting_point(b, w1, w2, learning_rate=0.1):
+    w = np.array([b, w1, w2]).reshape(X_corrupted.shape[1], 1)
+    learning_rate = float(learning_rate)
+    neuron = Neuron(w, activation_function=sigmoid, activation_function_derivative=sigmoid_prime)
+
+    story = [J_quadratic(neuron, X_corrupted, y_corrupted)]
+    for _ in range(2000):
+        neuron.SGD(X_corrupted, y_corrupted, 2, learning_rate=learning_rate, max_steps=2)
+        story.append(J_quadratic(neuron, X_corrupted, y_corrupted))
+    plt.plot(story)
+
+    plt.title("Learning curve.\n Final $b={0:.3f}$, $w_1={1:.3f}, w_2={2:.3f}$".format(*neuron.w.ravel()))
+    plt.ylabel("$J(w_1, w_2)$")
+    plt.xlabel("Weight and bias update number")
+    plt.show()
