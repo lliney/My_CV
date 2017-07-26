@@ -90,7 +90,7 @@ class Network:
                 # Для кожної порції визиваємо ф-ю апдейт
             if test_data is not None and self.output:
                 success_tests = self.evaluate(test_data)
-                print("Эпоха {0}: {1} / {2}".format(j, success_tests, n_test))
+                print("Эпоха {0}: {1} / {2}={3}%".format(j, success_tests, n_test,success_tests*100/n_test))
                 # Якщо є провірочні дані, показує як начилася мережа
             elif self.output:
                 print("Эпоха {0} завершена".format(j))
