@@ -1,0 +1,11 @@
+<application>
+  <component name="ToolbarClicksCollector">
+    <counts>
+      <entry action="CheckinProject@NavBarToolbar" count="1" />
+      <entry action="Run@NavBarToolbar" count="7" />
+      <entry action="com.intellij.find.SearchTextArea$ClearAction@unknown" count="1" />
+      <entry action="com.intellij.find.editorHeaderActions.NextOccurrenceAction@EditorToolbar" count="2" />
+      <entry action="com.jetbrains.python.debugger.concurrency.tool.panels.ConcurrencyToolWindowPanel$CloseToolWindowAction@PyConcurrencyVisualizer" count="1" />
+    </counts>
+  </component>
+</application>

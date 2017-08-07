@@ -17,7 +17,7 @@ def cost_function(network, test_data, onehot=True):
     c = 0
     for example, y in test_data:
         if not onehot:
-            y = np.eye(3, 1, k=-int(y))
+            y = np.eye(2, 1, k=-int(y))
         yhat = network.feedforward(example)
         c += np.sum((y - yhat)**2)
     return c / len(test_data)
